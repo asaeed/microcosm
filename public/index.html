@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Microcosm</title>
+<style>
+  :root {
+    --ink: #4a3a26; --ink-soft: #6a563c; --label: #8a7350;
+    --paper: #fffdf4; --paper-edge: #c9b489;
+    --rose: #a13a63; --violet: #4a3f96; --cerulean: #33608f; --verdigris: #2e8b74;
+    --ochre: #a1794a; --plum: #5e2a52; --clay: #96504f;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0; overflow: hidden; color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    background: radial-gradient(circle at 50% 45%, #fbf6ea 0%, #f3ead6 55%, #e6d8bd 90%, #d9c8a6 100%);
+  }
+  .vignette { position: fixed; inset: 0; pointer-events: none;
+    box-shadow: inset 0 0 18vmin rgba(120, 95, 50, .25); }
+  #slide { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  .graticule { fill: none; stroke: rgba(90, 70, 40, .18); stroke-dasharray: 4 6; }
+  #bubbles, #margin-notes, #hud { position: fixed; }
+  #bubbles { inset: 0; pointer-events: none; }
+  #margin-notes { top: 12px; right: 12px; bottom: 90px; width: 230px; }
+  #hud { inset: 0; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+
+  .tb { transform-box: fill-box; transform-origin: center; }
+  @keyframes mc-l1 { to { transform: translate(11px, 8px); } }
+  @keyframes mc-l2 { to { transform: translate(-13px, -7px); } }
+  @keyframes mc-l3 { to { transform: translate(9px, -11px); } }
+  @keyframes mc-l4 { to { transform: translate(-9px, 10px); } }
+  @keyframes mc-pod-e { to { transform: translate(50px, -14px); } }
+  @keyframes mc-pod-w { to { transform: translate(-44px, 12px); } }
+  @keyframes mc-spin { to { transform: rotate(360deg); } }
+  @keyframes mc-spin-r { to { transform: rotate(-360deg); } }
+  @keyframes mc-pulse { 0%, 100% { opacity: .5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.25); } }
+  @keyframes mc-wobble { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+  @keyframes mc-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+  @keyframes mc-ripple { to { stroke-dashoffset: -24; } }
+  @keyframes mc-sway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+  @keyframes mc-wave { to { transform: translateY(-12px); } }
+  @keyframes mc-blink { 0%, 90%, 100% { transform: scaleY(1); } 94%, 96% { transform: scaleY(.06); } }
+  @keyframes mc-look { 0%, 18% { transform: translate(0, 0); } 28%, 48% { transform: translate(4px, 1px); }
+    58%, 78% { transform: translate(-3px, 2px); } 88%, 100% { transform: translate(0, 0); } }
+  @keyframes mc-j1 { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(5px, -3px); }
+    50% { transform: translate(1px, -7px); } 75% { transform: translate(-4px, -2px); } }
+  @keyframes mc-j2 { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-5px, 3px); }
+    50% { transform: translate(-1px, 7px); } 75% { transform: translate(4px, 2px); } }
+  @keyframes mc-j3 { 0%, 100% { transform: translate(0, 0); } 33% { transform: translate(6px, 2px); }
+    66% { transform: translate(-3px, -5px); } }
+
+  .mc-a1 { animation: mc-l1 6.5s ease-in-out infinite alternate; }
+  .mc-a2 { animation: mc-l2 8s ease-in-out infinite alternate; }
+  .mc-a3 { animation: mc-l3 7s ease-in-out infinite alternate -2s; }
+  .mc-a4 { animation: mc-l4 9s ease-in-out infinite alternate -4s; }
+  .mc-pode { animation: mc-pod-e 5.5s ease-in-out infinite alternate; }
+  .mc-podw { animation: mc-pod-w 6.5s ease-in-out infinite alternate -3s; }
+  .mc-spin { animation: mc-spin 20s linear infinite; }
+  .mc-spin-r { animation: mc-spin-r 13s linear infinite; }
+  .mc-core { animation: mc-pulse 3.2s ease-in-out infinite; }
+  .mc-cilia { animation: mc-breathe 4.5s ease-in-out infinite; }
+  .mc-flag { animation: mc-ripple 1.1s linear infinite; }
+  .mc-flagwob { animation: mc-wobble 3.8s ease-in-out infinite; transform-origin: 100% 50%; }
+  .mc-sway { animation: mc-sway 6s ease-in-out infinite; }
+  .mc-wv { animation: mc-wave 2.4s ease-in-out infinite alternate; }
+  .mc-ribbon { animation: mc-ripple 1.3s linear infinite; }
+  .mc-blink { animation: mc-blink 5s ease-in-out infinite; }
+  .mc-look { animation: mc-look 9s ease-in-out infinite; }
+  .mc-halo { animation: mc-breathe 7s ease-in-out infinite; }
+  .mc-d1 { animation: mc-j1 5s linear infinite; }
+  .mc-d2 { animation: mc-j2 6.2s linear infinite; }
+  .mc-d3 { animation: mc-j3 4.4s linear infinite; }
+
+  /* mood modulates animation tempo (director sets via emote) */
+  .creature[data-mood="agitated"] * { animation-duration: revert-layer; }
+  .creature[data-mood="agitated"] .mc-a1, .creature[data-mood="agitated"] .mc-a2,
+  .creature[data-mood="agitated"] .mc-a3, .creature[data-mood="agitated"] .mc-a4 { animation-duration: 2.5s; }
+  .creature[data-mood="weary"] .mc-a1, .creature[data-mood="weary"] .mc-a2,
+  .creature[data-mood="weary"] .mc-a3, .creature[data-mood="weary"] .mc-a4 { animation-duration: 14s; }
+</style>
+</head>
+<body>
+<svg id="slide" class="stage">
+  <defs>
+    <filter id="goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="7"/>
+      <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9"/>
+    </filter>
+  </defs>
+  <circle class="graticule" id="graticule" />
+  <g id="structures" class="layer-structures"></g>
+  <g id="motes" class="layer-motes"></g>
+  <g id="creatures" class="layer-creatures"></g>
+</svg>
+<div class="vignette"></div>
+<div id="bubbles" class="bubbles-layer"></div>
+<div id="margin-notes" class="chronicle-margin"></div>
+<div id="hud" class="hud-layer"></div>
+
+<script src="parts.js"></script>
+<script src="sim.js"></script>
+<script src="net.js"></script>
+<script src="ui.js"></script>
+<script>
+  // App glue — grows in Tasks 4, 5, 6, 7.
+  const View = {
+    px: ([x, y]) => [x * innerWidth, y * innerHeight],
+    norm: (px, py) => [px / innerWidth, py / innerHeight],
+  };
+  const App = { world: null, es: null, lastDirector: 0 };
+
+  function sizeGraticule() {
+    const g = document.getElementById('graticule');
+    const r = Math.min(innerWidth, innerHeight) * 0.42;
+    g.setAttribute('cx', innerWidth / 2);
+    g.setAttribute('cy', innerHeight / 2);
+    g.setAttribute('r', r);
+  }
+  addEventListener('resize', sizeGraticule);
+  sizeGraticule();
+
+  App.es = Net.listen({
+    onSnapshot(world) { App.world = world; console.log('snapshot', world); },
+    onCommands(cmds) { console.log('commands', cmds); },
+    onDirector({ t }) { App.lastDirector = t; },
+  });
+</script>
+</body>
+</html>
