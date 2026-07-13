@@ -87,6 +87,7 @@ UI.initHud = function initHud() {
     downAt = [e.clientX, e.clientY, e.target.closest('.creature')];
   });
   document.getElementById('slide').addEventListener('pointerup', (e) => {
+    if ((UI.mode || 'interact') !== 'interact') { downAt = null; return; } // tool clicks never open the popover
     if (!downAt) return;
     const [x, y, g] = downAt;
     downAt = null;

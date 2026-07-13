@@ -187,6 +187,8 @@
         Sim.add(c, renderCreature(c, document.getElementById('creatures')));
       }
       for (const [sid, s] of Object.entries(world.structures || {})) UI.renderStructure(sid, s);
+      document.getElementById('margin-notes').replaceChildren();
+      for (const entry of (world.chronicle || []).slice(-4)) UI.marginNote(entry.text);
     },
     onCommands(cmds) { for (const c of cmds) applyCommand(c); },
     onDirector({ t }) { App.lastDirector = t; },
