@@ -81,7 +81,7 @@ const Sim = {
     }
     // vent blooms
     if (world && world.vents) {
-      this.ventTimers ??= world.vents.map(() => 0);
+      if (!this.ventTimers || this.ventTimers.length !== world.vents.length) this.ventTimers = world.vents.map(() => 0);
       world.vents.forEach((v, i) => {
         this.ventTimers[i] += dt;
         if (this.ventTimers[i] > (v.period || 60)) { this.ventTimers[i] = 0; this.bloom(v.pos[0], v.pos[1], 14); }

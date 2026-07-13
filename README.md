@@ -43,6 +43,8 @@ building a chapel) directly against a running server via `curl` — no
 Claude session required. Useful for verifying the server/page plumbing
 works before involving a director.
 
+Run the tests: `node --test test/*.test.js`
+
 ## Chassis gallery
 
 Open `public/gallery.html` (served by the same server, e.g.

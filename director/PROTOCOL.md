@@ -237,7 +237,11 @@ Every field `spawn` needs, in the exact shape the server and page expect
   use it for faction membership, not mood (mood is `emote`).
 - `intent` is `{"verb":"idle"}`, `{"verb":"forage"}`, or
   `{"verb":"move-to","target":[x,y]}` — set indirectly through the `idle`/
-  `forage`/`move-to` commands, or directly in a `spawn`.
+  `forage`/`move-to` commands, or directly in a `spawn`. The server's stored
+  `intent` can be stale: the page auto-reverts a creature to `{"verb":"idle"}`
+  once a move-to arrives (and on drag), but `/physics` only reports
+  pos/energy, so `/state` may still show the old intent — judge "arrived" by
+  position, not intent.
 
 ## 6. Chassis & parts
 

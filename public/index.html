@@ -74,7 +74,6 @@
   .mc-d3 { animation: mc-j3 4.4s linear infinite; }
 
   /* mood modulates animation tempo (director sets via emote) */
-  .creature[data-mood="agitated"] * { animation-duration: revert-layer; }
   .creature[data-mood="agitated"] .mc-a1, .creature[data-mood="agitated"] .mc-a2,
   .creature[data-mood="agitated"] .mc-a3, .creature[data-mood="agitated"] .mc-a4 { animation-duration: 2.5s; }
   .creature[data-mood="weary"] .mc-a1, .creature[data-mood="weary"] .mc-a2,
@@ -190,7 +189,7 @@
       document.getElementById('margin-notes').replaceChildren();
       for (const entry of (world.chronicle || []).slice(-4)) UI.marginNote(entry.text);
     },
-    onCommands(cmds) { for (const c of cmds) applyCommand(c); },
+    onCommands(cmds) { for (const c of cmds) { try { applyCommand(c); } catch (err) { console.error('applyCommand failed', c, err); } } },
     onDirector({ t }) { App.lastDirector = t; },
   });
 
