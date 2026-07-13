@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Microcosm — chassis gallery</title>
+<style>
+  body { margin: 0; font-family: Georgia, serif; color: #4a3a26;
+    background: radial-gradient(circle at 50% 45%, #fbf6ea 0%, #f3ead6 55%, #e6d8bd 90%, #d9c8a6 100%); }
+  h1 { font-style: italic; font-weight: normal; text-align: center; margin: 18px 0 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; padding: 12px; }
+  figure { margin: 0; text-align: center; }
+  figcaption { font-style: italic; font-size: 14px; }
+  svg { width: 100%; height: 240px; }
+</style>
+<!-- reuse the stage keyframes by copying them from index.html at runtime -->
+</head>
+<body>
+<h1>Chassis gallery</h1>
+<div class="grid" id="grid"></div>
+<script src="parts.js"></script>
+<script>
+  // Pull the keyframe stylesheet from index.html so there is one source of truth.
+  fetch('index.html').then((r) => r.text()).then((html) => {
+    const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+    const s = document.createElement('style');
+    s.textContent = css;
+    document.head.appendChild(s);
+    render();
+  });
+
+  const STAINS = [
+    { body: '#4a3f96', accent: '#2e8b74' }, { body: '#33608f', accent: '#a1794a' },
+    { body: '#4a3f96', accent: '#a13a63' }, { body: '#96504f', accent: '#2e8b74' },
+    { body: '#33608f', accent: '#4a3f96' }, { body: '#5e2a52', accent: '#a13a63' },
+  ];
+  const CUSTOM = { // extensibility proof: not a preset
+    parts: [
+      { type: 'gooBody', r: 36, lobes: 5, pods: 2, opacity: 0.3 },
+      { type: 'ring', r: 18, dash: '3 3', dur: 30 },
+      { type: 'stalkLure' },
+      { type: 'eye', x: -8, y: -4, r: 9 },
+    ],
+  };
+
+  function render() {
+    const grid = document.getElementById('grid');
+    const entries = [...Object.keys(CHASSIS).map((k) => [k, null]), ['custom: spiral penitent', CUSTOM]];
+    entries.forEach(([label, spec], i) => {
+      const fig = document.createElement('figure');
+      const svg = document.createElementNS(SVGNS, 'svg');
+      svg.setAttribute('viewBox', '-160 -120 320 240');
+      svg.innerHTML = `<defs><filter id="goo">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="7"/>
+        <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9"/>
+      </filter></defs>`;
+      const c = {
+        id: `gallery-${i}`, chassis: spec ? null : label, chassisSpec: spec,
+        stains: STAINS[i % STAINS.length], mood: 'calm', tint: null,
+      };
+      renderCreature(c, svg);
+      fig.appendChild(svg);
+      const cap = document.createElement('figcaption');
+      cap.textContent = label;
+      fig.appendChild(cap);
+      grid.appendChild(fig);
+    });
+  }
+</script>
+</body>
+</html>
