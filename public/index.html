@@ -122,10 +122,28 @@
   sizeGraticule();
 
   App.es = Net.listen({
-    onSnapshot(world) { App.world = world; console.log('snapshot', world); },
-    onCommands(cmds) { console.log('commands', cmds); },
+    onSnapshot(world) {
+      App.world = world;
+      Object.assign(CHASSIS, world.chassis || {});
+      document.getElementById('creatures').replaceChildren();
+      Sim.items.clear();
+      for (const c of Object.values(world.creatures)) {
+        Sim.add(c, renderCreature(c, document.getElementById('creatures')));
+      }
+    },
+    onCommands(cmds) { for (const c of cmds) applyCommand(c); },
     onDirector({ t }) { App.lastDirector = t; },
   });
+
+  function applyCommand(c) { console.log('command', c); } // replaced in Task 5
+
+  let last = performance.now();
+  (function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    if (App.world) Sim.step(dt, App.world);
+    requestAnimationFrame(frame);
+  })(performance.now());
 </script>
 </body>
 </html>
