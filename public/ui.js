@@ -95,6 +95,9 @@ UI.initHud = function initHud() {
   });
 };
 
+// escape director/user-authored strings before innerHTML interpolation
+const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
 UI.threads = {}; // id -> [{who: 'you'|'them', text}]
 UI.openTag = function openTag(id) {
   document.querySelector('.specimen-tag')?.remove();
@@ -103,26 +106,27 @@ UI.openTag = function openTag(id) {
   const [px, py] = View.px(c.pos);
   const tag = document.createElement('div');
   tag.className = 'specimen-tag';
+  tag.dataset.id = id;
   tag.style.left = `${Math.min(innerWidth - 270, px + 40)}px`;
   tag.style.top = `${Math.max(10, py - 80)}px`;
 
   const sliders = Object.entries(c.attributes || {}).map(([name, val]) => `
-    <label class="tag-slider">${name}
-      <input type="range" min="0" max="1" step="0.05" value="${val}" data-attr="${name}">
+    <label class="tag-slider">${esc(name)}
+      <input type="range" min="0" max="1" step="0.05" value="${val}" data-attr="${esc(name)}">
     </label>`).join('');
   const options = Object.keys(CHASSIS)
-    .map((k) => `<option value="${k}" ${k === c.chassis ? 'selected' : ''}>${k}</option>`).join('');
+    .map((k) => `<option value="${esc(k)}" ${k === c.chassis ? 'selected' : ''}>${esc(k)}</option>`).join('');
   const thread = (UI.threads[id] || [])
-    .map((m) => `<div class="thread-${m.who}">${m.who === 'you' ? 'You: ' : ''}${m.text}</div>`).join('');
+    .map((m) => `<div class="thread-${m.who}">${m.who === 'you' ? 'You: ' : ''}${esc(m.text)}</div>`).join('');
 
   tag.innerHTML = `
     <button class="tag-close" type="button">×</button>
-    <div class="tag-name">${c.name}</div>
-    <div class="tag-epithet">${c.epithet || ''} — <span class="tag-mood">${c.mood}</span></div>
+    <div class="tag-name">${esc(c.name)}</div>
+    <div class="tag-epithet">${esc(c.epithet || '')} — <span class="tag-mood">${esc(c.mood)}</span></div>
     ${sliders}
     <label class="tag-slider">chassis <select class="tag-chassis">${options}</select></label>
     <div class="tag-thread">${thread}</div>
-    <form class="tag-whisper"><input type="text" placeholder="Whisper to ${c.name}…" maxlength="300"></form>`;
+    <form class="tag-whisper"><input type="text" placeholder="Whisper to ${esc(c.name)}…" maxlength="300"></form>`;
 
   tag.querySelector('.tag-close').addEventListener('click', () => tag.remove());
   tag.querySelectorAll('input[type=range]').forEach((r) => r.addEventListener('change', () => {
@@ -150,5 +154,6 @@ UI.openTag = function openTag(id) {
 UI.onSay((a) => {
   if (a.target !== 'user') return;
   (UI.threads[a.id] ??= []).push({ who: 'them', text: a.text });
-  if (document.querySelector('.specimen-tag')) UI.openTag(a.id);
+  const open = document.querySelector('.specimen-tag');
+  if (open && open.dataset.id === a.id) UI.openTag(a.id);
 });
