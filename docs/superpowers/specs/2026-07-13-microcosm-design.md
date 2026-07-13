@@ -93,7 +93,7 @@ Each part takes params (count, size, color, speed). A chassis = list of parts + 
 - Full-bleed parchment slide, dashed graticule ring, ambient motes.
 - **Creation bar** (bottom center, paper style): freeform prompt → queued for director, who names the creature, composes/picks chassis, sets stains, infers slider attributes. A shimmering "specimen developing…" placeholder appears until the director's spawn command lands.
 - **Specimen tag popover** (click creature): name, epithet, mood; attribute sliders; whisper thread (user types, director answers in character); chassis override control.
-- **God tools** (corner cluster, brass instruments): food bloom (click place), hazard (toxin cloud), drag (pointer-drag a creature; the director is informed and creatures may react indignantly).
+- **God tools** (corner cluster, brass instruments): food bloom (click place), hazard (toxin cloud). Dragging a creature (pointer-drag, no tool selected) is a separate always-available gesture, not a third corner-cluster button; the director is informed and creatures may react indignantly.
 - **Chronicle margin notes** (right edge): director-authored observations drift up and fade; hover freezes; click opens the full scrollable record.
 - **Speech bubbles:** handwritten paper specimen tags near the speaker, queued to avoid overlap, fading after a few seconds. Also logged to the chronicle when noteworthy.
 - All major elements carry `className`s for devtools identification.

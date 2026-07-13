@@ -185,6 +185,7 @@ UI.initTools = function initTools() {
   });
   slide.addEventListener('pointermove', (e) => {
     if (!drag) return;
+    if (e.buttons === 0) { drag = null; return; } // pointerup landed on a HUD element, not #slide
     if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true;
     if (!drag.moved) return;
     const c = App.world.creatures[drag.id];
