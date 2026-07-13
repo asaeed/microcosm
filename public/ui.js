@@ -157,3 +157,95 @@ UI.onSay((a) => {
   const open = document.querySelector('.specimen-tag');
   if (open && open.dataset.id === a.id) UI.openTag(a.id);
 });
+
+UI.mode = 'interact';
+UI.initTools = function initTools() {
+  const hud = document.getElementById('hud');
+  const tools = document.createElement('div');
+  tools.className = 'god-tools';
+  tools.innerHTML = `
+    <button type="button" class="god-tool" data-mode="feed" title="Drop a food bloom">✦</button>
+    <button type="button" class="god-tool" data-mode="hazard" title="Seed a toxin cloud">☄</button>`;
+  tools.addEventListener('click', (e) => {
+    const b = e.target.closest('.god-tool');
+    if (!b) return;
+    UI.mode = UI.mode === b.dataset.mode ? 'interact' : b.dataset.mode;
+    tools.querySelectorAll('.god-tool').forEach((x) =>
+      x.classList.toggle('god-tool-active', x.dataset.mode === UI.mode));
+    document.body.style.cursor = UI.mode === 'interact' ? '' : 'crosshair';
+  });
+  hud.appendChild(tools);
+
+  const slide = document.getElementById('slide');
+  let drag = null; // {id, item}
+  slide.addEventListener('pointerdown', (e) => {
+    const g = e.target.closest('.creature');
+    if (g && UI.mode === 'interact') drag = { id: g.dataset.id, moved: false, x: e.clientX, y: e.clientY };
+  });
+  slide.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true;
+    if (!drag.moved) return;
+    const c = App.world.creatures[drag.id];
+    c.pos = View.norm(e.clientX, e.clientY);
+    c.intent = { verb: 'idle' };
+  });
+  slide.addEventListener('pointerup', (e) => {
+    if (drag && drag.moved) {
+      const c = App.world.creatures[drag.id];
+      Net.physics([{ id: drag.id, pos: c.pos }]);
+      Net.input({ type: 'god-drag', id: drag.id, to: c.pos });
+      drag = null;
+      return;
+    }
+    drag = null;
+    if (UI.mode === 'interact') return;
+    if (e.target.closest('.god-tools') || e.target.closest('.specimen-tag')) return;
+    const pos = View.norm(e.clientX, e.clientY);
+    if (UI.mode === 'feed') { Sim.bloom(pos[0], pos[1], 20); Net.input({ type: 'god-food', pos }); }
+    if (UI.mode === 'hazard') { Sim.setHazard(pos[0], pos[1]); Net.input({ type: 'god-hazard', pos }); }
+    UI.mode = 'interact';
+    document.body.style.cursor = '';
+    document.querySelectorAll('.god-tool').forEach((x) => x.classList.remove('god-tool-active'));
+  });
+};
+
+UI.marginNote = function marginNote(text) {
+  const box = document.getElementById('margin-notes');
+  const note = document.createElement('div');
+  note.className = 'margin-note';
+  note.textContent = text;
+  note.addEventListener('click', UI.openChronicle);
+  box.prepend(note);
+  while (box.children.length > 6) box.lastChild.remove();
+};
+
+UI.openChronicle = function openChronicle() {
+  document.querySelector('.chronicle-overlay')?.remove();
+  const ov = document.createElement('div');
+  ov.className = 'chronicle-overlay';
+  const rows = (App.world.chronicle || [])
+    .map((e) => `<div class="chronicle-row"><span class="chronicle-t">${
+      new Date(e.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }</span> ${esc(e.text)}</div>`).join('');
+  ov.innerHTML = `<div class="chronicle-paper">
+    <button class="tag-close" type="button">×</button>
+    <div class="tag-name">Chronicle — Slide No. ${esc(App.world.meta.slideNo)}</div>
+    <div class="chronicle-list">${rows || '<em>Nothing observed yet.</em>'}</div></div>`;
+  ov.querySelector('.tag-close').addEventListener('click', () => ov.remove());
+  ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+  document.getElementById('hud').appendChild(ov);
+  ov.querySelector('.chronicle-list').scrollTop = 1e9;
+};
+
+UI.initPresence = function initPresence() {
+  const dot = document.createElement('div');
+  dot.className = 'director-dot';
+  dot.title = 'the director is away';
+  document.getElementById('hud').appendChild(dot);
+  setInterval(() => {
+    const here = Date.now() - App.lastDirector < 30000;
+    dot.classList.toggle('director-here', here);
+    dot.title = here ? 'the director is attending' : 'the director is away';
+  }, 2000);
+};

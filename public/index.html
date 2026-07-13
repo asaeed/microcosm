@@ -112,6 +112,29 @@
   .thread-you { color: var(--plum); }
   .tag-whisper input { width: 100%; box-sizing: border-box; font: italic 12px Georgia, serif;
     padding: 4px 6px; border: 1px dashed var(--paper-edge); background: rgba(255, 253, 244, .7); }
+
+  .god-tools { position: fixed; bottom: 12px; left: 12px; display: flex; gap: 6px; }
+  .god-tool { width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 15px;
+    color: var(--ink); border: 1px solid var(--label);
+    background: radial-gradient(circle at 35% 30%, #e8d9b8, #b89b62); }
+  .god-tool-active { box-shadow: 0 0 0 3px rgba(161, 121, 74, .45); }
+  .margin-note { margin: 6px 0; padding: 5px 8px; font-size: 12px; font-style: italic;
+    color: var(--ink-soft); background: rgba(255, 253, 244, .85); border: 1px solid rgba(201, 180, 137, .6);
+    box-shadow: 1px 1px 0 rgba(120, 95, 50, .12); transform: rotate(-1deg); cursor: pointer;
+    animation: note-in .5s ease-out; }
+  .margin-note:nth-child(even) { transform: rotate(.8deg); }
+  #margin-notes:not(:hover) .margin-note:nth-child(n+4) { opacity: .45; }
+  @keyframes note-in { from { opacity: 0; transform: translateY(12px); } }
+  .chronicle-overlay { position: fixed; inset: 0; background: rgba(74, 58, 38, .25);
+    display: flex; align-items: center; justify-content: center; }
+  .chronicle-paper { position: relative; width: min(520px, 84vw); max-height: 70vh; padding: 16px 20px;
+    background: var(--paper); border: 1px solid var(--paper-edge);
+    box-shadow: 4px 4px 0 rgba(120, 95, 50, .25); display: flex; flex-direction: column; }
+  .chronicle-list { overflow-y: auto; margin-top: 8px; font-size: 13px; line-height: 1.6; }
+  .chronicle-t { color: var(--label); font-variant: small-caps; margin-right: 6px; }
+  .director-dot { position: fixed; top: 12px; left: 12px; width: 12px; height: 12px; border-radius: 50%;
+    border: 1px solid var(--label); background: #cbb58c; opacity: .5; }
+  .director-here { background: var(--verdigris); opacity: 1; box-shadow: 0 0 8px rgba(46, 139, 116, .6); }
 </style>
 </head>
 <body>
@@ -222,7 +245,7 @@
         UI.renderStructure(a.structureId, s);
         break;
       }
-      case 'chronicle': w.chronicle.push({ t: new Date().toISOString(), text: a.text }); break; // margin note UI in Task 7
+      case 'chronicle': w.chronicle.push({ t: new Date().toISOString(), text: a.text }); UI.marginNote(a.text); break;
       case 'world': for (const k of ['vents', 'hazards']) if (a[k]) w[k] = a[k]; break;
     }
   }
@@ -236,6 +259,8 @@
   })(performance.now());
 
   UI.initHud();
+  UI.initTools();
+  UI.initPresence();
 </script>
 </body>
 </html>
