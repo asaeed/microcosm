@@ -61,3 +61,94 @@ const UI = {
     document.querySelector('.developing-chip')?.remove();
   },
 };
+
+UI.initHud = function initHud() {
+  const hud = document.getElementById('hud');
+
+  // creation bar
+  const bar = document.createElement('form');
+  bar.className = 'creation-bar';
+  bar.innerHTML = `<input class="creation-input" type="text"
+    placeholder="Describe a new specimen — its nature, goals, temperament" maxlength="500">`;
+  bar.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = bar.querySelector('input');
+    const prompt = input.value.trim();
+    if (!prompt) return;
+    Net.input({ type: 'create', prompt });
+    UI.developing(prompt);
+    input.value = '';
+  });
+  hud.appendChild(bar);
+
+  // creature click -> popover (drag handled in Task 7; a click is a <6px pointer travel)
+  let downAt = null;
+  document.getElementById('slide').addEventListener('pointerdown', (e) => {
+    downAt = [e.clientX, e.clientY, e.target.closest('.creature')];
+  });
+  document.getElementById('slide').addEventListener('pointerup', (e) => {
+    if (!downAt) return;
+    const [x, y, g] = downAt;
+    downAt = null;
+    if (Math.hypot(e.clientX - x, e.clientY - y) > 6 || !g) return;
+    UI.openTag(g.dataset.id);
+  });
+};
+
+UI.threads = {}; // id -> [{who: 'you'|'them', text}]
+UI.openTag = function openTag(id) {
+  document.querySelector('.specimen-tag')?.remove();
+  const c = App.world.creatures[id];
+  if (!c) return;
+  const [px, py] = View.px(c.pos);
+  const tag = document.createElement('div');
+  tag.className = 'specimen-tag';
+  tag.style.left = `${Math.min(innerWidth - 270, px + 40)}px`;
+  tag.style.top = `${Math.max(10, py - 80)}px`;
+
+  const sliders = Object.entries(c.attributes || {}).map(([name, val]) => `
+    <label class="tag-slider">${name}
+      <input type="range" min="0" max="1" step="0.05" value="${val}" data-attr="${name}">
+    </label>`).join('');
+  const options = Object.keys(CHASSIS)
+    .map((k) => `<option value="${k}" ${k === c.chassis ? 'selected' : ''}>${k}</option>`).join('');
+  const thread = (UI.threads[id] || [])
+    .map((m) => `<div class="thread-${m.who}">${m.who === 'you' ? 'You: ' : ''}${m.text}</div>`).join('');
+
+  tag.innerHTML = `
+    <button class="tag-close" type="button">×</button>
+    <div class="tag-name">${c.name}</div>
+    <div class="tag-epithet">${c.epithet || ''} — <span class="tag-mood">${c.mood}</span></div>
+    ${sliders}
+    <label class="tag-slider">chassis <select class="tag-chassis">${options}</select></label>
+    <div class="tag-thread">${thread}</div>
+    <form class="tag-whisper"><input type="text" placeholder="Whisper to ${c.name}…" maxlength="300"></form>`;
+
+  tag.querySelector('.tag-close').addEventListener('click', () => tag.remove());
+  tag.querySelectorAll('input[type=range]').forEach((r) => r.addEventListener('change', () => {
+    const name = r.dataset.attr, value = parseFloat(r.value);
+    c.attributes[name] = value;
+    Net.input({ type: 'set-attribute', id, name, value });
+  }));
+  tag.querySelector('.tag-chassis').addEventListener('change', (e) => {
+    Net.input({ type: 'set-chassis', id, chassis: e.target.value });
+  });
+  tag.querySelector('.tag-whisper').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const inp = e.target.querySelector('input');
+    const text = inp.value.trim();
+    if (!text) return;
+    (UI.threads[id] ??= []).push({ who: 'you', text });
+    Net.input({ type: 'whisper', id, text });
+    inp.value = '';
+    UI.openTag(id); // re-render thread
+  });
+  document.getElementById('hud').appendChild(tag);
+};
+
+// whispers back from the director land in the thread
+UI.onSay((a) => {
+  if (a.target !== 'user') return;
+  (UI.threads[a.id] ??= []).push({ who: 'them', text: a.text });
+  if (document.querySelector('.specimen-tag')) UI.openTag(a.id);
+});

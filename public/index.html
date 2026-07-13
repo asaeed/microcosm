@@ -92,6 +92,26 @@
   .developing-chip { margin-top: 6px; padding: 4px 10px; font-size: 12px; font-style: italic;
     color: var(--label); background: rgba(255, 253, 244, .8); border: 1px dashed var(--paper-edge);
     animation: mc-breathe 2s ease-in-out infinite; }
+
+  .creation-bar { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); width: min(560px, 70vw); }
+  .creation-input { width: 100%; box-sizing: border-box; padding: 8px 12px; font: italic 14px Georgia, serif;
+    color: var(--ink); background: var(--paper); border: 1px solid var(--paper-edge);
+    box-shadow: 2px 2px 0 rgba(120, 95, 50, .18); outline: none; }
+  .creation-input::placeholder { color: var(--label); }
+  .specimen-tag { position: fixed; width: 250px; padding: 10px 12px; background: var(--paper);
+    border: 1px solid var(--paper-edge); box-shadow: 2px 2px 0 rgba(120, 95, 50, .18);
+    font-size: 12.5px; transform: rotate(-.5deg); }
+  .tag-close { position: absolute; top: 2px; right: 6px; border: 0; background: none;
+    font-size: 15px; color: var(--label); cursor: pointer; }
+  .tag-name { font-weight: bold; font-size: 14px; }
+  .tag-epithet { font-style: italic; color: var(--ink-soft); margin-bottom: 6px; }
+  .tag-slider { display: block; margin: 4px 0; color: var(--ink-soft);
+    font-variant: small-caps; letter-spacing: .5px; }
+  .tag-slider input, .tag-slider select { width: 100%; accent-color: var(--ochre); }
+  .tag-thread { max-height: 110px; overflow-y: auto; margin: 6px 0; font-style: italic; }
+  .thread-you { color: var(--plum); }
+  .tag-whisper input { width: 100%; box-sizing: border-box; font: italic 12px Georgia, serif;
+    padding: 4px 6px; border: 1px dashed var(--paper-edge); background: rgba(255, 253, 244, .7); }
 </style>
 </head>
 <body>
@@ -214,6 +234,8 @@
     if (App.world) Sim.step(dt, App.world);
     requestAnimationFrame(frame);
   })(performance.now());
+
+  UI.initHud();
 </script>
 </body>
 </html>
