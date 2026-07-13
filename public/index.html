@@ -79,6 +79,19 @@
   .creature[data-mood="agitated"] .mc-a3, .creature[data-mood="agitated"] .mc-a4 { animation-duration: 2.5s; }
   .creature[data-mood="weary"] .mc-a1, .creature[data-mood="weary"] .mc-a2,
   .creature[data-mood="weary"] .mc-a3, .creature[data-mood="weary"] .mc-a4 { animation-duration: 14s; }
+
+  .bubble { position: absolute; max-width: 220px; padding: 6px 10px; font-size: 13px;
+    font-style: italic; background: var(--paper); border: 1px solid var(--paper-edge);
+    box-shadow: 2px 2px 0 rgba(120, 95, 50, .18); transform: rotate(-1deg);
+    transition: opacity .9s; }
+  .bubble-whisper { border-style: dashed; color: var(--plum); }
+  .bubble-fade { opacity: 0; }
+  .structure-label { font-family: Georgia, serif; font-style: italic; font-size: 12px;
+    fill: var(--ink-soft); text-anchor: middle; }
+  .developing-stack { position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%); }
+  .developing-chip { margin-top: 6px; padding: 4px 10px; font-size: 12px; font-style: italic;
+    color: var(--label); background: rgba(255, 253, 244, .8); border: 1px dashed var(--paper-edge);
+    animation: mc-breathe 2s ease-in-out infinite; }
 </style>
 </head>
 <body>
@@ -130,12 +143,69 @@
       for (const c of Object.values(world.creatures)) {
         Sim.add(c, renderCreature(c, document.getElementById('creatures')));
       }
+      for (const [sid, s] of Object.entries(world.structures || {})) UI.renderStructure(sid, s);
     },
     onCommands(cmds) { for (const c of cmds) applyCommand(c); },
     onDirector({ t }) { App.lastDirector = t; },
   });
 
-  function applyCommand(c) { console.log('command', c); } // replaced in Task 5
+  function applyCommand(a) {
+    const w = App.world;
+    const cr = a.id ? w.creatures[a.id] : null;
+    switch (a.cmd) {
+      case 'spawn': {
+        w.creatures[a.creature.id] = a.creature;
+        Sim.remove(a.creature.id); // re-spawn with same id = chassis override
+        document.querySelector(`#creatures [data-id="${a.creature.id}"]`)?.remove();
+        Sim.add(a.creature, renderCreature(a.creature, document.getElementById('creatures')));
+        UI.resolveDeveloping();
+        break;
+      }
+      case 'define-chassis': CHASSIS[a.id] = a.spec; break;
+      case 'move-to': if (cr) cr.intent = { verb: 'move-to', target: a.target }; break;
+      case 'forage': if (cr) cr.intent = { verb: 'forage' }; break;
+      case 'idle': if (cr) cr.intent = { verb: 'idle' }; break;
+      case 'say': {
+        if (!cr) break;
+        UI.bubble(cr, a.text, a.target === 'user' ? 'whisper' : 'speech');
+        UI.sayHooks.forEach((fn) => fn(a));
+        break;
+      }
+      case 'emote': {
+        if (!cr) break;
+        cr.mood = a.mood;
+        const g = document.querySelector(`#creatures [data-id="${a.id}"]`);
+        if (g) g.dataset.mood = a.mood;
+        break;
+      }
+      case 'tint': {
+        if (!cr) break;
+        cr.tint = a.color;
+        const g = document.querySelector(`#creatures [data-id="${a.id}"]`);
+        if (g) setTint(g, a.color);
+        break;
+      }
+      case 'set-attribute': if (cr) cr.attributes[a.name] = a.value; break;
+      case 'give': {
+        const from = w.creatures[a.from], to = w.creatures[a.to];
+        if (!from || !to) break;
+        const amt = Math.min(a.amount, from.energy);
+        from.energy -= amt; to.energy = Math.min(1, to.energy + amt);
+        break;
+      }
+      case 'build': {
+        const s = (w.structures[a.structureId] ??= {
+          name: a.name || 'structure', blobs: [], tint: a.tint || '#8a7350', builders: [],
+        });
+        if (a.name) s.name = a.name;
+        if (a.blob) s.blobs.push(a.blob);
+        UI.renderStructure(a.structureId, s);
+        break;
+      }
+      case 'chronicle': w.chronicle.push({ t: new Date().toISOString(), text: a.text }); break; // margin note UI in Task 7
+      case 'world': for (const k of ['vents', 'hazards']) if (a[k]) w[k] = a[k]; break;
+    }
+  }
 
   let last = performance.now();
   (function frame(now) {
