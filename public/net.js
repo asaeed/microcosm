@@ -5,6 +5,12 @@ const Net = {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
     });
   },
+  act(commands) {
+    // user-initiated god controls (chassis, sliders) write canonical state directly
+    return fetch('/act', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commands }),
+    });
+  },
   physics(updates) {
     return fetch('/physics', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates }),

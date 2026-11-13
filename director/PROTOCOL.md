@@ -18,7 +18,7 @@ just stores whatever you last told it and relays it to browsers.
 Stay in the fiction. Chronicle entries and `say` text are voice, not status
 messages — never write meta-commentary like "updating creature state" into
 a `chronicle` or `say` command. If you need to reason about mechanics, do
-that in `director-notes.md` or your own scratch thinking, not in world text.
+that in the scenario's `notes.md` or your own scratch thinking, not in world text.
 
 ## 2. Loop
 
@@ -33,8 +33,9 @@ and also marks you as present (drives the page's "director is attending"
 indicator for the next ~30s), so only consume when you're actually about to
 act on what you see.
 
-Think: update your mental model (and `director-notes.md` if anything
-notable changed — new relationship, new belief, new plot beat), then decide
+Think: update your mental model (and the scenario's notes file —
+`scenarios/<name>/notes.md`, matching the server's `SCENARIO` env — if
+anything notable changed: new relationship, new belief, new plot beat), then decide
 what every creature does/says this tick, and how to answer any queued
 inputs.
 
@@ -58,7 +59,7 @@ someone should've reacted; the whole batch is one mind's move.
 
 ## 3. Command reference
 
-All 13 verbs the server accepts (`CMDS` in `server.js`). Unknown commands or
+All 15 verbs the server accepts (`CMDS` in `server.js`). Unknown commands or
 missing referenced creatures fail that entry only — the rest of the batch
 still applies — so it's safe to over-batch.
 
@@ -131,6 +132,29 @@ dict (rendered as a 0–1 slider on the page).
 {"cmd": "set-attribute", "id": "skeptic", "name": "suspicion", "value": 0.8}
 ```
 
+**voice** — replaces the creature's ambient line banks. The page runs all
+small-talk cadence itself (proximity conversations with turn-taking — each
+bubble shows 5s, then a 3s pause — plus cross-slide approach visits); these
+banks are the words it draws from, so author them per creature and refresh
+them as the story shifts — stale banks mean creatures mutter last week's
+plot. Kinds: `greetings`/`replies` (conversations), `musings` (solo),
+`status` (the creature's brief, honest words to its god about its current
+state — shown atop its popup menu when clicked; the page composes a plain
+one from mood/energy/intent if unset), `onDrop` (spoken bubble after the
+user drags it somewhere). Templates filled at speak time: `{name}`
+(conversation partner), `{mood}`, `{energy}`. Built-in generic defaults
+apply to any creature without a bank.
+
+```json
+{"cmd": "voice", "id": "preacher", "voice": {
+  "greetings": ["Peace upon your membrane, {name}."],
+  "replies": ["The vent provides. Even now."],
+  "musings": ["One more membrane. Then rest."],
+  "status": ["Rebuilding, Hand. Zeal thin; hands steady."],
+  "onDrop": ["...so the Hand wills."]
+}}
+```
+
 **give** — transfers energy between two creatures, bounded by the giver's
 current energy and the receiver's 1.0 cap.
 
@@ -151,6 +175,14 @@ structure's `builders` list once (deduped).
  "name": "Vent Chapel", "blob": [0.3, 0.68, 0.035]}
 ```
 
+**unbuild** — removes the most recently laid blob from a structure (the
+dispute verb: sabotage, decay, exile-by-demolition). Removing the last blob
+deletes the structure entirely.
+
+```json
+{"cmd": "unbuild", "structureId": "chapel"}
+```
+
 **chronicle** — appends a timestamped field-note; shows as a margin note
 and in the full chronicle overlay.
 
@@ -158,8 +190,10 @@ and in the full chronicle overlay.
 {"cmd": "chronicle", "text": "Br. Lumen lays the first membrane of a chapel near the east vent."}
 ```
 
-**world** — overwrites `vents` and/or `hazards` wholesale (only the keys
-you include are touched).
+**world** — overwrites `vents`, `hazards`, and/or `story` wholesale (only
+the keys you include are touched). `story: true` pauses the page's ambient
+chatter for a performance — the story player sets and clears it
+automatically, so you rarely send it by hand.
 
 ```json
 {"cmd": "world", "vents": [{"pos": [0.22, 0.72], "period": 45}, {"pos": [0.78, 0.3], "period": 70}]}
@@ -170,29 +204,33 @@ you include are touched).
 Queued user inputs arrive in `/state`'s `inputs` array, each with a
 server-added `t` timestamp. Handle every one you see before consuming.
 
-- **`create`** — `{type, prompt}`. A specimen is "developing" on the page
-  (a chip that disappears the instant any `spawn` command lands). Author a
-  full creature: invent a name and Latinate epithet from the prompt, pick a
-  built-in chassis or write a `chassisSpec`, pick stains from the palette
-  (§7), invent 1–3 slider `attributes` implied by the prompt (e.g. a prompt
-  about a "gullible normie" implies `gullibility`), place it (`pos`), then
-  `spawn` it and `chronicle` its arrival.
+- **`decree`** — `{type, prompt}`. Freeform text from the bottom bar; the
+  user may describe a new specimen OR issue any order about the world and
+  its characters ("make it rain food", "quill apologizes", "start a
+  talent show"). Interpret and enact it.
+  - Creature description → author a full creature: invent a name and
+    Latinate epithet, pick a built-in chassis or write a `chassisSpec`,
+    pick stains from the palette (§7), invent 1–3 slider `attributes`
+    implied by the prompt (a "gullible normie" implies `gullibility`),
+    place it, `spawn` it with a `voice` bank in character, and `chronicle`
+    its arrival.
+  - Anything else → translate into commands, story beats (§10), dial
+    changes, or world edits — whatever enacts it best. Fold it into the
+    current narrative rather than executing it robotically.
 - **`whisper`** — `{type, id, text}`. The user spoke to creature `id`
   in-character. Reply with a `say` command targeting `"user"` from that
   creature, and let the whisper actually change something — update the
-  creature's beliefs/relationships in `director-notes.md`, and where it
-  makes sense reflect it mechanically too (a `set-attribute`, a `tint`
-  shift, a new intent).
-- **`set-attribute`** — `{type, id, name, value}`. The user dragged a
-  slider in the specimen tag. The page updates its own local view
-  optimistically but does **not** persist this to the server — only `/act`
-  writes canonical state. Echo it back with a `set-attribute` command (same
-  id/name/value) so it survives a reload and reaches other viewers.
-- **`set-chassis`** — `{type, id, chassis}`. The user picked a new body
-  plan from the tag's dropdown. `spawn` replaces the *entire* creature
-  record, so re-`spawn` the same id with all of that creature's current
-  fields unchanged except `chassis` (and `chassisSpec: null` unless you're
-  handing it a custom spec).
+  creature's beliefs/relationships in the scenario's `notes.md`, and where
+  it makes sense reflect it mechanically too (a `set-attribute`, a `tint`
+  shift, a new intent). Reply promptly — the page tells the user their
+  whisper is "queued" whenever the director looks away.
+- **`set-attribute`** — `{type, id, name, value}`. Informational: the page
+  has already written it canonically (it posts the matching `set-attribute`
+  to `/act` itself). Don't echo it — just react narratively if the change
+  matters (a zeal drop, a suspicion spike).
+- **`set-chassis`** — `{type, id, chassis}`. Informational: the page has
+  already re-`spawn`ed the creature with the new chassis itself. React
+  in-fiction if you like — transformation is a dramatic event.
 - **`god-food`** — `{type, pos}`. The user dropped a food bloom; the page
   has already rendered and simulated it (motes aren't part of world state
   or any command — there's no verb for them). Your job is purely narrative:
@@ -229,12 +267,18 @@ Every field `spawn` needs, in the exact shape the server and page expect
 - `pos` is normalized `[0..1, 0..1]` — never pixels; only the page converts.
 - `energy` is `0..1`.
 - `attributes` is an open dictionary; every key becomes a 0–1 slider in
-  that creature's tag. Invent whatever traits the scenario needs.
+  that creature's tag. Invent whatever traits the scenario needs. One name
+  is engine-recognized: **`skittish`** — creatures with it physically flee
+  anyone within 0.18 (force scales with the value), and above 0.5 the
+  chatter engine won't pull them into conversations. It's still a normal
+  slider, so the user can dial a hermit into a socialite live.
 - `chassis` names a built-in preset (§6) or an id you registered with
   `define-chassis`; `chassisSpec` (if non-null) overrides `chassis`
   entirely with an inline `{parts:[...]}` (and optional `orient:true`).
 - `tint`, when set, is a hex color drawn as an aura behind the creature —
   use it for faction membership, not mood (mood is `emote`).
+- `voice` (optional) holds the ambient line banks (see the `voice` command);
+  the page's chatter engine reads it directly off the creature record.
 - `intent` is `{"verb":"idle"}`, `{"verb":"forage"}`, or
   `{"verb":"move-to","target":[x,y]}` — set indirectly through the `idle`/
   `forage`/`move-to` commands, or directly in a `spawn`. The server's stored
@@ -298,6 +342,12 @@ render time is `chassisSpec` first, then `chassis` looked up by name, then
   units/sec (normalized space) and eats it within a 0.02 radius, restoring
   0.08 energy (capped at 1). `move-to` steers at 0.06 units/sec. Energy
   decays 0.012/sec while moving, 0.005/sec while idle, floored at 0.
+  Idle creatures also graze on their own: they drift toward motes within
+  0.07 at 0.02 units/sec and eat within the same 0.02 radius — so a god
+  food-drop matters even with no orders; and below 0.25 energy an idle
+  creature forages in earnest by itself (full 0.05 speed, any distance), so
+  populations no longer starve while socializing. `forage` is the
+  deliberate version, and `move-to` travel ignores food entirely.
 - **Sluggish, never dead:** below 0.15 energy a creature moves at half
   speed and should read as tired/plaintive in chronicle and speech — energy
   never removes a creature and there is no reproduction. Don't write toward
@@ -315,8 +365,8 @@ render time is `chassisSpec` first, then `chassis` looked up by name, then
   Track pairwise trust -1..1, who believes what and how strongly, which
   creatures cluster into named factions (and what `tint` marks them),
   and active feuds/disputes. Disputes are social only — shoving, mote
-  theft, exile from a shelter — never violence that harms/removes a
-  creature.
+  theft, exile from a shelter, tearing membranes off a structure
+  (`unbuild`) — never violence that harms/removes a creature.
 - **No death, no reproduction** — full stop, this is a hard v1 constraint,
   not a tuning knob.
 - **`tint`** is the faction-color mechanism: set it on member creatures
@@ -326,9 +376,10 @@ render time is `chassisSpec` first, then `chassis` looked up by name, then
   CSS variables): rose `#a13a63`, violet `#4a3f96`, cerulean `#33608f`,
   verdigris `#2e8b74`, ochre `#a1794a`, plum `#5e2a52`, clay `#96504f`.
 
-## 8. director-notes.md conventions
+## 8. Scenario notes conventions
 
-Keep `director-notes.md` as **current state**, not a log. Sections: Cast,
+Keep the scenario's `notes.md` (`scenarios/<name>/notes.md`, beside its
+`world.json`) as **current state**, not a log. Sections: Cast,
 Relationships, Beliefs, Factions, Plots, Mechanics this run (see the
 template in that file). When something changes, rewrite the relevant
 section in place — don't append a dated "Update:" paragraph underneath old
@@ -344,3 +395,41 @@ vent," not "A structure was created." Speech is in-character and short
 fine: not every creature needs a line, or even a move, every tick. A quiet
 tick where one relationship shifts by a gesture is better than everyone
 talking at once.
+
+## 10. Stories
+
+Whenever you attend the world, don't just answer inputs — weave a story.
+Author a 3–5 minute arc for the characters currently present (mine the
+scenario notes: relationships, plots, dials), then let the engine play it
+back on a timeline:
+
+1. Write the arc as timed beats to `scenarios/<name>/story-current.json`:
+
+```json
+{"beats": [
+  {"commands": [{"cmd": "chronicle", "text": "Act one begins..."}]},
+  {"wait": 15, "commands": [{"cmd": "say", "id": "preacher", "text": "..."}]},
+  {"until": {"id": "pallor", "near": [0.31, 0.67], "dist": 0.07, "timeout": 90},
+   "commands": [{"cmd": "unbuild", "structureId": "chapel"}]}
+]}
+```
+
+2. Launch it (kill any previous player first):
+
+```bash
+pkill -f play-story; nohup node scripts/play-story.js \
+  scenarios/<name>/story-current.json > /dev/null 2>&1 &
+```
+
+The player automatically brackets the performance with `world story:true/false`,
+which pauses the page's ambient chatter so the narrative reads clean (poke and
+drop reactions stay live; a crashed player un-pauses itself after 2 quiet
+minutes).
+
+Story rules: silly, funny, dramatic, thrilling — **never too serious**.
+Beats every 8–20 seconds, speech in one-or-two-line volleys (the page's
+5s/3s bubble cadence paces itself). Use only creatures present. End every
+story with a ~60-second wander beat (scattered `move-to`s, `forage`s)
+before whatever comes next. Stories change real state — builds, tints,
+moods, dials — so update the scenario notes after authoring, and make the
+next story inherit the consequences of the last.

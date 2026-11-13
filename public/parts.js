@@ -251,6 +251,8 @@ function renderCreature(c, layer) {
     fill: c.tint || '#000', 'fill-opacity': 0.16, display: c.tint ? '' : 'none',
   }, g);
   aura.style.filter = 'blur(6px)';
+  // invisible hit disc: sparse chassis (murmuration dots, salp gaps) are otherwise nearly ungrabbable
+  el('circle', { cx: 0, cy: 0, r: 62, fill: 'none', 'pointer-events': 'all', class: 'hit-area' }, g);
   const spec = c.chassisSpec || CHASSIS[c.chassis] || CHASSIS.watch;
   for (const part of spec.parts) {
     if (PARTS[part.type]) PARTS[part.type](g, part, c);

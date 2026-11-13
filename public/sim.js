@@ -47,27 +47,47 @@ const Sim = {
 
   bloom(x, y, count = 14) {
     const layer = document.getElementById('motes');
-    for (let i = 0; i < count && this.motes.length < 120; i++) {
-      const m = {
-        x: x + (Math.random() - 0.5) * 0.06,
-        y: y + (Math.random() - 0.5) * 0.05,
-        vy: 0.004 + Math.random() * 0.008, sway: Math.random() * 10,
-        el: el('circle', { r: 1.5 + Math.random(), fill: 'rgba(90,70,40,.4)', class: 'mote' }, layer),
-      };
-      this.motes.push(m);
+    for (let i = 0; i < count; i++) {
+      let m;
+      if (this.motes.length < 120) {
+        m = { el: el('circle', { r: 1.5 + Math.random(), fill: 'rgba(90,70,40,.4)', class: 'mote' }, layer) };
+        this.motes.push(m);
+      } else {
+        // at the cap: recycle an existing mote into the bloom — a god food-drop must always show
+        this._steal = ((this._steal || 0) + 17) % this.motes.length;
+        m = this.motes[this._steal];
+      }
+      m.x = x + (Math.random() - 0.5) * 0.06;
+      m.y = y + (Math.random() - 0.5) * 0.05;
+      m.vy = 0.004 + Math.random() * 0.008;
+      m.sway = Math.random() * 10;
     }
   },
+  eat(mote, c) {
+    mote.el.remove();
+    this.motes.splice(this.motes.indexOf(mote), 1);
+    c.energy = Math.min(1, c.energy + 0.08);
+  },
   setHazard(x, y) {
+    // an amorphous plum cloud: gooey drifting lobes + a breathing dashed boundary + jittering spores
     const layer = document.getElementById('motes');
-    const g = el('circle', {
-      cx: 0, cy: 0, r: 10, fill: '#5e2a52', 'fill-opacity': 0.12,
-      stroke: '#5e2a52', 'stroke-opacity': 0.35, 'stroke-dasharray': '3 5', class: 'hazard',
-    }, layer);
+    const scale = Math.min(innerWidth, innerHeight);
+    const pr = 0.09 * scale;
+    const [px, py] = View.px([x, y]);
+    const g = el('g', { class: 'hazard', transform: `translate(${px},${py})` }, layer);
+    const goo = el('g', { filter: 'url(#goo)', opacity: 0.16 }, g);
+    el('circle', { cx: 0, cy: 0, r: pr * 0.5, fill: '#5e2a52' }, goo);
+    el('circle', { cx: -pr * 0.35, cy: -pr * 0.2, r: pr * 0.32, fill: '#5e2a52', class: 'mc-a1' }, goo);
+    el('circle', { cx: pr * 0.33, cy: -pr * 0.25, r: pr * 0.28, fill: '#5e2a52', class: 'mc-a2' }, goo);
+    el('circle', { cx: pr * 0.1, cy: pr * 0.35, r: pr * 0.3, fill: '#5e2a52', class: 'mc-a3' }, goo);
+    el('circle', { cx: 0, cy: 0, r: pr, fill: 'none', stroke: '#5e2a52', 'stroke-opacity': 0.3,
+      'stroke-width': 1, 'stroke-dasharray': '2 5', class: 'tb mc-halo' }, g);
+    for (let i = 0; i < 4; i++) {
+      el('circle', { cx: (i - 1.5) * pr * 0.3, cy: ((i % 2) - 0.5) * pr * 0.5, r: 1.5,
+        fill: '#5e2a52', 'fill-opacity': 0.6, class: `mc-d${(i % 3) + 1}` }, g);
+    }
     const h = { x, y, r: 0.09, until: Date.now() + 60000, el: g };
     this.hazards.push(h);
-    const [px, py] = View.px([x, y]);
-    g.setAttribute('cx', px); g.setAttribute('cy', py);
-    g.setAttribute('r', 0.09 * Math.min(innerWidth, innerHeight));
     return h;
   },
 
@@ -84,7 +104,11 @@ const Sim = {
       if (!this.ventTimers || this.ventTimers.length !== world.vents.length) this.ventTimers = world.vents.map(() => 0);
       world.vents.forEach((v, i) => {
         this.ventTimers[i] += dt;
-        if (this.ventTimers[i] > (v.period || 60)) { this.ventTimers[i] = 0; this.bloom(v.pos[0], v.pos[1], 14); }
+        if (this.ventTimers[i] > (v.period || 60)) {
+          this.ventTimers[i] = 0;
+          this.bloom(v.pos[0], v.pos[1], 14);
+          if (typeof UI !== 'undefined' && UI.pulse) UI.pulse(v.pos[0], v.pos[1], '#a1794a');
+        }
       });
     }
     // motes fall
@@ -121,13 +145,20 @@ const Sim = {
       const near = nearestMote(c.pos, this.motes);
       if (near) {
         if (near.d < 0.02) {
-          near.mote.el.remove();
-          this.motes.splice(this.motes.indexOf(near.mote), 1);
-          c.energy = Math.min(1, c.energy + 0.08);
+          this.eat(near.mote, c);
         } else {
           const [mx, my] = steerVec(c.pos, [near.mote.x, near.mote.y], 0.05 * speedMul, dt);
           dx += mx; dy += my; moving = true;
         }
+      }
+    } else {
+      // idle: graze on nearby food; when hungry (< 0.25), forage in earnest without waiting for orders
+      const hungry = c.energy < 0.25;
+      const near = nearestMote(c.pos, this.motes);
+      if (near && near.d < 0.02) this.eat(near.mote, c);
+      else if (near && (hungry || near.d < 0.07)) {
+        const [mx, my] = steerVec(c.pos, [near.mote.x, near.mote.y], (hungry ? 0.05 : 0.02) * speedMul, dt);
+        dx += mx; dy += my; moving = hungry;
       }
     }
     // ever-present gentle wander
@@ -135,6 +166,19 @@ const Sim = {
     dy += Math.cos(this.t * 0.23 + it.sy * 40) * 0.004 * dt;
     const [hx, hy] = hazardPush(c.pos, this.hazards, Date.now());
     dx += hx * dt * 8; dy += hy * dt * 8;
+    // skittish creatures (attributes.skittish 0..1) flee from anyone who comes near
+    const shy = (c.attributes && c.attributes.skittish) || 0;
+    if (shy > 0) {
+      for (const other of this.items.values()) {
+        if (other.c.id === c.id) continue;
+        const ox = c.pos[0] - other.c.pos[0], oy = c.pos[1] - other.c.pos[1];
+        const d = Math.hypot(ox, oy);
+        if (d > 0.18 || d === 0) continue;
+        const push = 0.09 * shy * (1 - d / 0.18);
+        dx += (ox / d) * push * dt;
+        dy += (oy / d) * push * dt;
+      }
+    }
     c.pos[0] = Math.min(0.97, Math.max(0.03, c.pos[0] + dx));
     c.pos[1] = Math.min(0.94, Math.max(0.06, c.pos[1] + dy));
     c.energy = energyTick(c.energy, moving, dt);

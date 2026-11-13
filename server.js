@@ -6,7 +6,11 @@ const path = require('path');
 
 const PORT = process.env.PORT || 4380;
 const PUB = path.join(__dirname, 'public');
-const SAVE = process.env.MICROCOSM_SAVE || path.join(__dirname, 'world.json');
+// Engine vs scenario: engine code lives in the repo; each running world (its save +
+// director notes) lives under scenarios/<name>/. Pick one with SCENARIO=name.
+const SCENARIO = process.env.SCENARIO || 'default';
+const SAVE = process.env.MICROCOSM_SAVE || path.join(__dirname, 'scenarios', SCENARIO, 'world.json');
+fs.mkdirSync(path.dirname(SAVE), { recursive: true });
 
 const DEFAULT_WORLD = () => ({
   creatures: {},
@@ -49,6 +53,7 @@ const CMDS = {
   emote: (a) => { creature(a.id).mood = a.mood; },
   tint: (a) => { creature(a.id).tint = a.color; },
   'set-attribute': (a) => { creature(a.id).attributes[a.name] = a.value; },
+  voice: (a) => { creature(a.id).voice = a.voice; }, // director-authored line banks; the page runs the cadence
   give: (a) => {
     const from = creature(a.from), to = creature(a.to);
     const amt = Math.min(a.amount, from.energy);
@@ -63,8 +68,14 @@ const CMDS = {
     if (a.blob) s.blobs.push(a.blob);
     if (a.id && !s.builders.includes(a.id)) s.builders.push(a.id);
   },
+  unbuild: (a) => { // dispute verb: sabotage/decay — removes the newest blob; empty structure vanishes
+    const s = world.structures[a.structureId];
+    if (!s) throw new Error(`unknown structure: ${a.structureId}`);
+    s.blobs.pop();
+    if (!s.blobs.length) delete world.structures[a.structureId];
+  },
   chronicle: (a) => { world.chronicle.push({ t: new Date().toISOString(), text: a.text }); },
-  world: (a) => { for (const k of ['vents', 'hazards']) if (a[k]) world[k] = a[k]; },
+  world: (a) => { for (const k of ['vents', 'hazards', 'story']) if (a[k] !== undefined) world[k] = a[k]; },
 };
 
 function readBody(req) {

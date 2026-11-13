@@ -19,10 +19,15 @@
   .vignette { position: fixed; inset: 0; pointer-events: none;
     box-shadow: inset 0 0 18vmin rgba(120, 95, 50, .25); }
   #slide { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  #creatures .creature { cursor: grab; }
+  /* !important because the creature's own cursor:grab otherwise wins while hovering it */
+  body.grabbing, body.grabbing #creatures .creature { cursor: grabbing !important; }
   .graticule { fill: none; stroke: rgba(90, 70, 40, .18); stroke-dasharray: 4 6; }
   #bubbles, #margin-notes, #hud { position: fixed; }
   #bubbles { inset: 0; pointer-events: none; }
-  #margin-notes { top: 12px; right: 12px; bottom: 90px; width: 230px; }
+  /* pointer-events none: this column overlays the slide — without it, creatures underneath are unclickable */
+  #margin-notes { right: 12px; bottom: 12px; width: 230px; pointer-events: none;
+    display: flex; flex-direction: column; justify-content: flex-end; }
   #hud { inset: 0; pointer-events: none; }
   #hud > * { pointer-events: auto; }
 
@@ -62,7 +67,8 @@
   .mc-core { animation: mc-pulse 3.2s ease-in-out infinite; }
   .mc-cilia { animation: mc-breathe 4.5s ease-in-out infinite; }
   .mc-flag { animation: mc-ripple 1.1s linear infinite; }
-  .mc-flagwob { animation: mc-wobble 3.8s ease-in-out infinite; transform-origin: 100% 50%; }
+  /* transform-box is load-bearing: without it the % origin resolves against the whole SVG canvas */
+  .mc-flagwob { animation: mc-wobble 3.8s ease-in-out infinite; transform-box: fill-box; transform-origin: 100% 50%; }
   .mc-sway { animation: mc-sway 6s ease-in-out infinite; }
   .mc-wv { animation: mc-wave 2.4s ease-in-out infinite alternate; }
   .mc-ribbon { animation: mc-ripple 1.3s linear infinite; }
@@ -103,12 +109,14 @@
   .tag-close { position: absolute; top: 2px; right: 6px; border: 0; background: none;
     font-size: 15px; color: var(--label); cursor: pointer; }
   .tag-name { font-weight: bold; font-size: 14px; }
-  .tag-epithet { font-style: italic; color: var(--ink-soft); margin-bottom: 6px; }
+  .tag-epithet { font-style: italic; color: var(--ink-soft); }
+  .tag-status { font-style: italic; color: var(--plum); margin: 3px 0 7px; }
   .tag-slider { display: block; margin: 4px 0; color: var(--ink-soft);
     font-variant: small-caps; letter-spacing: .5px; }
   .tag-slider input, .tag-slider select { width: 100%; accent-color: var(--ochre); }
   .tag-thread { max-height: 110px; overflow-y: auto; margin: 6px 0; font-style: italic; }
   .thread-you { color: var(--plum); }
+  .thread-sys { color: var(--label); font-size: 11px; }
   .tag-whisper input { width: 100%; box-sizing: border-box; font: italic 12px Georgia, serif;
     padding: 4px 6px; border: 1px dashed var(--paper-edge); background: rgba(255, 253, 244, .7); }
 
@@ -117,10 +125,15 @@
     color: var(--ink); border: 1px solid var(--label);
     background: radial-gradient(circle at 35% 30%, #e8d9b8, #b89b62); }
   .god-tool-active { box-shadow: 0 0 0 3px rgba(161, 121, 74, .45); }
+  .god-hint { position: fixed; bottom: 54px; left: 12px; padding: 2px 8px; font-style: italic;
+    font-size: 11px; color: var(--ink-soft); background: rgba(255, 253, 244, .85);
+    border: 1px solid var(--paper-edge); }
+  .fx-pulse { animation: fx-pulse .9s ease-out forwards; transform-box: fill-box; transform-origin: center; }
+  @keyframes fx-pulse { to { transform: scale(6); opacity: 0; } }
   .margin-note { margin: 6px 0; padding: 5px 8px; font-size: 12px; font-style: italic;
     color: var(--ink-soft); background: rgba(255, 253, 244, .85); border: 1px solid rgba(201, 180, 137, .6);
     box-shadow: 1px 1px 0 rgba(120, 95, 50, .12); transform: rotate(-1deg); cursor: pointer;
-    animation: note-in .5s ease-out; }
+    pointer-events: auto; animation: note-in .5s ease-out; }
   .margin-note:nth-child(even) { transform: rotate(.8deg); }
   #margin-notes:not(:hover) .margin-note:nth-child(n+4) { opacity: .45; }
   @keyframes note-in { from { opacity: 0; transform: translateY(12px); } }
@@ -186,10 +199,11 @@
         Sim.add(c, renderCreature(c, document.getElementById('creatures')));
       }
       for (const [sid, s] of Object.entries(world.structures || {})) UI.renderStructure(sid, s);
+      UI.renderVents(world);
       document.getElementById('margin-notes').replaceChildren();
       for (const entry of (world.chronicle || []).slice(-4)) UI.marginNote(entry.text);
     },
-    onCommands(cmds) { for (const c of cmds) { try { applyCommand(c); } catch (err) { console.error('applyCommand failed', c, err); } } },
+    onCommands(cmds) { App.lastCmdAt = Date.now(); for (const c of cmds) { try { applyCommand(c); } catch (err) { console.error('applyCommand failed', c, err); } } },
     onDirector({ t }) { App.lastDirector = t; },
   });
 
@@ -203,6 +217,8 @@
         document.querySelector(`#creatures [data-id="${a.creature.id}"]`)?.remove();
         Sim.add(a.creature, renderCreature(a.creature, document.getElementById('creatures')));
         UI.resolveDeveloping();
+        const open = document.querySelector('.specimen-tag');
+        if (open && open.dataset.id === a.creature.id) UI.openTag(a.creature.id);
         break;
       }
       case 'define-chassis': CHASSIS[a.id] = a.spec; break;
@@ -230,6 +246,7 @@
         break;
       }
       case 'set-attribute': if (cr) cr.attributes[a.name] = a.value; break;
+      case 'voice': if (cr) cr.voice = a.voice; break;
       case 'give': {
         const from = w.creatures[a.from], to = w.creatures[a.to];
         if (!from || !to) break;
@@ -246,8 +263,18 @@
         UI.renderStructure(a.structureId, s);
         break;
       }
+      case 'unbuild': {
+        const s = w.structures[a.structureId];
+        if (!s) break;
+        s.blobs.pop();
+        if (!s.blobs.length) {
+          delete w.structures[a.structureId];
+          document.querySelector(`#structures [data-id="${a.structureId}"]`)?.remove();
+        } else UI.renderStructure(a.structureId, s);
+        break;
+      }
       case 'chronicle': w.chronicle.push({ t: new Date().toISOString(), text: a.text }); UI.marginNote(a.text); break;
-      case 'world': for (const k of ['vents', 'hazards']) if (a[k]) w[k] = a[k]; break;
+      case 'world': for (const k of ['vents', 'hazards', 'story']) if (a[k] !== undefined) w[k] = a[k]; if (a.vents) UI.renderVents(w); break;
     }
   }
 
@@ -262,6 +289,7 @@
   UI.initHud();
   UI.initTools();
   UI.initPresence();
+  UI.initChatter();
 </script>
 </body>
 </html>

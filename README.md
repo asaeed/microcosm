@@ -11,13 +11,19 @@ plots) as it goes. No death, no reproduction, no LLM API key — the
 ## Run it
 
 ```bash
-node server.js
+node server.js                      # runs the "default" scenario
+SCENARIO=vent-chapel node server.js # runs a named scenario
 ```
 
-Then open `http://localhost:4380`. State persists to `world.json`
-(gitignored) and reloads on restart, so the slide survives killing the
-terminal. Set `PORT`/`MICROCOSM_SAVE` env vars to override the default port
-(4380) or save-file location.
+Then open `http://localhost:4380`.
+
+**Engine vs scenario:** the repo is the engine; each running world is a
+scenario. A scenario lives in `scenarios/<name>/` (gitignored) and holds
+`world.json` (the save — creatures, structures, chronicle) and `notes.md`
+(the director's living memory for that run). State persists on every change
+and reloads on restart, so a slide survives killing the terminal. Set
+`PORT`/`MICROCOSM_SAVE` env vars to override the default port (4380) or
+save-file location.
 
 ## Summon the director
 
@@ -28,9 +34,9 @@ Open Claude Code in this repo and say something like:
 `director/PROTOCOL.md` is the full operating manual: server endpoints, all
 13 command verbs with JSON examples, the creature schema, chassis/parts
 reference, world rules and tuning numbers, and style guidance. It also
-covers `director-notes.md`, which the director keeps up to date as the
-world's living memory (cast, relationships, beliefs, factions, plots) so a
-future session can pick the story back up.
+covers the scenario's `notes.md`, which the director keeps up to date as
+the world's living memory (cast, relationships, beliefs, factions, plots)
+so a future session can pick the story back up.
 
 ## No-AI smoke test
 
@@ -64,9 +70,8 @@ public/net.js             # Net: input/physics/listen (SSE) helpers
 public/ui.js              # creation bar, specimen-tag popover, god tools, chronicle notes, presence dot
 public/gallery.html       # dev page: renders every chassis preset + one custom spec
 director/PROTOCOL.md      # the director's operating manual
-director-notes.md         # director's living memory of the current world
-scripts/demo.sh           # AI-free smoke scene
-world.json                # runtime save (gitignored)
+scenarios/<name>/         # one running world: world.json (save) + notes.md (director memory), gitignored
+scripts/demo.sh           # AI-free smoke scene (seeds whatever scenario the server is running)
 ```
 
 ## Design docs
